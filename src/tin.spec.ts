@@ -40,9 +40,28 @@ describe('tin', () => {
 		expect(c.get(key)).toMatchObject({ x: { n: 0 }, y: { n: 0 } });
 	});
 
+	it('can register singleton scope', () => {
+		const c = new SimpleIoc();
+		const key = TypeRef.for('key');
+
+		let n = 0;
+		c.register(key, () => ({ n: n++ }), { scope: 'singleton' });
+
+		expect({ x: c.get(key), y: c.get(key) }).toMatchObject({ x: { n: 0 }, y: { n: 0 } });
+
+	});
+
 	it('raises Erorr on resolution failure', () => {
 		const c = new SimpleIoc();
 		const key = TypeRef.for('missing');
 		expect(() => c.get(key)).toThrowError();
+	});
+
+	it('rasises Error when trying to register a ref twice', () => {
+		const c = new SimpleIoc();
+		const key = TypeRef.for('there-can-be-only-one');
+		c.register(key, () => ({ theAnswer: 42 }));
+		expect(() => c.register(key, () => ({ message: "nope" }))).toThrowError();
+
 	});
 });

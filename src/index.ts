@@ -57,8 +57,18 @@ export class SimpleIoc implements IocContainer {
 		return !!found;
 	}
 
-	register<T extends object, U extends T>(type: TypeKey<T>, ctor: (ioc: Resolver) => U) {
-		this.#knownTypes.set(getTypeRef(type), ctor);
+	register<T extends object, U extends T>(type: TypeKey<T>, ctor: (ioc: Resolver) => U, options?: { scope: undefined | 'singleton' }) {
+		const ref = getTypeRef(type);
+		if(this.has(ref)) throw new Error(`Can\'t register ${getSymbolText(ref)} twice.`)
+		if(options?.scope === 'singleton') {
+			let instance: undefined | U = undefined;
+			this.#knownTypes.set(ref, () => {
+				if(instance === undefined)
+					instance = ctor(this);
+				return instance;
+			})
+		} else
+			this.#knownTypes.set(ref, ctor);
 	}
 
 	registerInstance<T extends object, U extends T>(type: TypeKey<T>, instance: U) {
