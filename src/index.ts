@@ -1,5 +1,6 @@
 import { TypeRef } from './typeRef.js';
 
+export { TypeRef, ref } from './typeRef.js';
 export type TypeKey<T> = { prototype: T } | TypeRef<T>;
 
 type Resolver = Pick<IocContainer, 'get'>;
