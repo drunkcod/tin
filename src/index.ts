@@ -76,23 +76,44 @@ export class SimpleIoc implements IocContainer {
 	}
 }
 
+const CYCLE: unique symbol = Symbol('Dependency Cycle');
+
+export class CycleError extends Error {
+	readonly path: TypeRef<unknown>[] = [];
+
+	get message() {
+		return `Dependency cycles caused by ${this.path.map(getSymbolText).join('⇢')}.`;
+	}
+}
+
 class ScopedLookup {
 	readonly #resolved = new WeakMap<TypeRef<unknown>, unknown>();
 	constructor(private readonly innner: SimpleIoc) {}
 
 	get<T extends object>(type: TypeKey<T>): T {
 		const ref = getTypeRef(type);
-		const found = this.#resolved.get(ref);
-		if (found !== undefined) return found as T;
+		try {
+			const found = this.#resolved.get(ref);
+			if (found !== undefined) {
+				if(found == CYCLE)
+					throw new CycleError();
+				return found as T;
+			}
 
-		const resolve = this.innner.find(ref);
-		if (!resolve) {
-			const name = isTypeRef(type) ? getSymbolText(type) : type.prototype.constructor.name;
-			throw new ResolutionError(name);
+			const resolve = this.innner.find(ref);
+			if (!resolve) {
+				const name = isTypeRef(type) ? getSymbolText(type) : type.prototype.constructor.name;
+				throw new ResolutionError(name);
+			}
+
+			this.#resolved.set(ref, CYCLE);
+			const resolved = resolve(this);
+			this.#resolved.set(ref, resolved);
+			return resolved;
+		} catch(error) {
+			if(error instanceof CycleError)
+				error.path.push(ref);
+			throw error;
 		}
-
-		const resolved = resolve(this);
-		this.#resolved.set(ref, resolved);
-		return resolved;
 	}
 }

@@ -1,5 +1,5 @@
 import { describe, it, test, expect } from '@jest/globals';
-import { SimpleIoc } from './index.js';
+import { CycleError, SimpleIoc } from './index.js';
 import { TypeRef } from './typeRef.js';
 
 describe('tin', () => {
@@ -63,5 +63,16 @@ describe('tin', () => {
 		c.register(key, () => ({ theAnswer: 42 }));
 		expect(() => c.register(key, () => ({ message: "nope" }))).toThrowError();
 
+	});
+	
+	it('detects resolution cycles', () => {
+		const c = new SimpleIoc();
+		const a = TypeRef.for('a');
+		const b = TypeRef.for('b');
+
+		c.register(a, (c) => ({ b: c.get(b)}));
+		c.register(b, (c) => ({ a: c.get(a)}));
+
+		expect(() => c.get(a)).toThrowError(CycleError);
 	});
 });
