@@ -8,11 +8,25 @@
   "files": [
     "lib/**/*"
   ],
+  "exports": {
+    ".": {
+      "import": {
+        "default": "./lib/index.js",
+        "types": "./lib/index.ts"
+      },
+      "require": {
+        "default": "./lib/cjs/index.js",
+        "types": "./lib/index.ts"
+      }
+    }
+  },
   "scripts": {
     "clean": "rimraf lib",
     "compile": "tsc",
+    "compile:cjs": "tsc --module commonjs --outdir lib/cjs --declaration false",
+    "fixup:cjs": "echo '{\"type\": \"commonjs\"}' > lib/cjs/package.json",
     "test": "NODE_OPTIONS=\"--experimental-vm-modules --no-warnings\" jest",
-    "build": "npm-run-all clean compile --silent"
+    "build": "npm-run-all clean -p compile compile:cjs -s fixup:cjs --silent"
   },
   "keywords": [
     "IoC",
