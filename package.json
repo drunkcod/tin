@@ -3,7 +3,11 @@
   "type": "module",
   "version": "0.0.1",
   "description": "tobbe's tiny injection library, token based IoC and factory factory thing.",
-  "main": "index.js",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "files": [
+    "lib/**/*"
+  ],
   "scripts": {
     "clean": "rimraf lib",
     "compile": "tsc",

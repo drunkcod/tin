@@ -75,4 +75,23 @@ describe('tin', () => {
 
 		expect(() => c.get(a)).toThrowError(CycleError);
 	});
+
+	it('can create child container', () => {
+		const base = new TinyContainer();
+		const a = TypeRef.for('a');
+		base.register(a, (c) => ({ b: c.get(b)}));
+		
+		const c = base.child();
+		const b = TypeRef.for('b');
+		c.register(b, () => ({ value: 'hello' }));
+
+		expect({ 
+			a: c.get(a) ,
+			baseHasB: base.has(b),
+		}).toMatchObject({ 
+			a: { b: { value: 'hello' } },
+			baseHasB: false,
+		});
+
+	});
 });

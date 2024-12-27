@@ -1,6 +1,6 @@
 import { TypeRef } from './typeRef.js';
 
-type TypeKey<T> = { prototype: T } | TypeRef<T>;
+export type TypeKey<T> = { prototype: T } | TypeRef<T>;
 
 type Resolver = Pick<IocContainer, 'get'>;
 
@@ -54,6 +54,10 @@ const getTypeRef = <T extends object>(type: TypeKey<T>): TypeRef<T> => {
 export class TinyContainer implements IocContainer {
 	readonly #knownTypes = new Map<TypeRef<unknown>, FactoryFn<unknown>>();
 
+	child(): IocContainer {
+		return new ChildContainer(this);
+	}
+
 	find<T extends object>(type: TypeKey<T>): FactoryFn<T> {
 		return this.#knownTypes.get(getTypeRef(type)) as FactoryFn<T>;
 	}
@@ -86,9 +90,37 @@ export class TinyContainer implements IocContainer {
 	}
 }
 
+class ChildContainer implements IocContainer {
+	readonly c = new TinyContainer();
+	constructor(private readonly inner: TinyContainer) {}
+
+	get<T extends object>(type: TypeKey<T>): T {
+		return TinyContainer.prototype.get.call(this, type) as T;
+	}
+
+	find<T extends object>(type: TypeKey<T>) {
+		return this.c.find(type) ?? this.inner.find(type);
+	}
+
+	has<T extends object>(type: TypeKey<T>): boolean {
+		return this.c.has(type) || this.inner.has(type);
+	}
+
+	register<T extends object, U extends T>(type: TypeKey<T>, ctor: FactoryFn<U>, options?: { scope: undefined | 'singleton' }): void {
+		this.c.register(type, ctor, options);
+	}
+
+	registerInstance<T extends object, U extends T>(
+		type: { prototype: T } | TypeRef<T>,
+		instance: U,
+	): void {
+		this.c.registerInstance(type, instance);
+	}
+}
+
 class ScopedLookup {
 	readonly #resolved = new WeakMap<TypeRef<unknown>, unknown>();
-	constructor(private readonly innner: TinyContainer) {}
+	constructor(private readonly innner: Pick<TinyContainer, 'find'>) {}
 
 	get<T extends object>(type: TypeKey<T>): T {
 		const ref = getTypeRef(type);
