@@ -8,9 +8,9 @@ type FactoryFn<T> = (ioc: Resolver) => T;
 
 export interface IocContainer {
 	get<T extends object>(type: TypeKey<T>): T;
-	find<T extends object>(type: TypeKey<T>): (ioc: IocContainer) => T;
 	has<T extends object>(type: TypeKey<T>): boolean;
-	register<T extends object, U extends T>(type: TypeKey<T>, ctor: FactoryFn<U>): void;
+	register<T extends object, U extends T>(type: TypeKey<T>, ctor: FactoryFn<U>,  options?: { scope: undefined | 'singleton' }): void;
+	registerInstance<T extends object, U extends T>(type: TypeKey<T>, instance: U): void;
 }
 
 const isTypeRef = <T>(x: TypeKey<T>): x is TypeRef<T> => typeof x === 'symbol';
@@ -19,6 +19,16 @@ const getSymbolText = (x: Symbol) => {
 	const s = x.toString();
 	return s.substring('Symbol('.length, s.length - 1);
 };
+
+const CYCLE: unique symbol = Symbol('Dependency Cycle');
+
+export class CycleError extends Error {
+	readonly path: TypeRef<unknown>[] = [];
+
+	get message() {
+		return `Dependency cycles caused by ${this.path.map(getSymbolText).join('⇢')}.`;
+	}
+}
 
 class ResolutionError extends Error {
 	readonly key: string;
@@ -41,7 +51,7 @@ const getTypeRef = <T extends object>(type: TypeKey<T>): TypeRef<T> => {
 	return s;
 };
 
-export class SimpleIoc implements IocContainer {
+export class TinyContainer implements IocContainer {
 	readonly #knownTypes = new Map<TypeRef<unknown>, FactoryFn<unknown>>();
 
 	find<T extends object>(type: TypeKey<T>): FactoryFn<T> {
@@ -76,19 +86,9 @@ export class SimpleIoc implements IocContainer {
 	}
 }
 
-const CYCLE: unique symbol = Symbol('Dependency Cycle');
-
-export class CycleError extends Error {
-	readonly path: TypeRef<unknown>[] = [];
-
-	get message() {
-		return `Dependency cycles caused by ${this.path.map(getSymbolText).join('⇢')}.`;
-	}
-}
-
 class ScopedLookup {
 	readonly #resolved = new WeakMap<TypeRef<unknown>, unknown>();
-	constructor(private readonly innner: SimpleIoc) {}
+	constructor(private readonly innner: TinyContainer) {}
 
 	get<T extends object>(type: TypeKey<T>): T {
 		const ref = getTypeRef(type);

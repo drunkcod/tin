@@ -1,10 +1,10 @@
 import { describe, it, test, expect } from '@jest/globals';
-import { CycleError, SimpleIoc } from './index.js';
+import { CycleError, TinyContainer } from './index.js';
 import { TypeRef } from './typeRef.js';
 
 describe('tin', () => {
 	test('register by key', () => {
-		const c = new SimpleIoc();
+		const c = new TinyContainer();
 		const key = TypeRef.for('key');
 		const instance = { message: 'hello' };
 		c.register(key, () => instance);
@@ -14,7 +14,7 @@ describe('tin', () => {
 	});
 
 	it('can register instance', () => {
-		const c = new SimpleIoc();
+		const c = new TinyContainer();
 		const key = TypeRef.for('key');
 		const instance = { message: 'hello' };
 		c.registerInstance(key, instance);
@@ -29,7 +29,7 @@ describe('tin', () => {
 	});
 
 	it('reuses instances during resolution', () => {
-		const c = new SimpleIoc();
+		const c = new TinyContainer();
 		const dep = TypeRef.for('dep');
 		const key = TypeRef.for('key');
 
@@ -41,7 +41,7 @@ describe('tin', () => {
 	});
 
 	it('can register singleton scope', () => {
-		const c = new SimpleIoc();
+		const c = new TinyContainer();
 		const key = TypeRef.for('key');
 
 		let n = 0;
@@ -52,13 +52,13 @@ describe('tin', () => {
 	});
 
 	it('raises Erorr on resolution failure', () => {
-		const c = new SimpleIoc();
+		const c = new TinyContainer();
 		const key = TypeRef.for('missing');
 		expect(() => c.get(key)).toThrowError();
 	});
 
 	it('rasises Error when trying to register a ref twice', () => {
-		const c = new SimpleIoc();
+		const c = new TinyContainer();
 		const key = TypeRef.for('there-can-be-only-one');
 		c.register(key, () => ({ theAnswer: 42 }));
 		expect(() => c.register(key, () => ({ message: "nope" }))).toThrowError();
@@ -66,7 +66,7 @@ describe('tin', () => {
 	});
 	
 	it('detects resolution cycles', () => {
-		const c = new SimpleIoc();
+		const c = new TinyContainer();
 		const a = TypeRef.for('a');
 		const b = TypeRef.for('b');
 
