@@ -52,42 +52,50 @@ const getTypeRef = <T extends object>(type: TypeKey<T>): TypeRef<T> => {
 	return s;
 };
 
+type Scope = 'transient' | 'singleton';
+
 export class TinyContainer implements IocContainer {
-	readonly #knownTypes = new Map<TypeRef<unknown>, FactoryFn<unknown>>();
+	readonly #knownTypes = new Map<TypeRef<unknown>, [Scope, FactoryFn<unknown>]>();
+
+	#set(key: TypeKey<object>, scope: Scope, ctor: FactoryFn<unknown>) {
+		const ref = getTypeRef(key);
+		if(this.has(ref)) throw new Error(`Can\'t register ${getSymbolText(ref)} twice.`)
+		this.#knownTypes.set(ref, [scope, ctor]);
+	}
 
 	child(): IocContainer {
 		return new ChildContainer(this);
 	}
 
-	find<T extends object>(type: TypeKey<T>): FactoryFn<T> {
-		return this.#knownTypes.get(getTypeRef(type)) as FactoryFn<T>;
+	find<T extends object>(ref: TypeRef<T>): [Scope, FactoryFn<T>] {
+		return this.#knownTypes.get(ref) as [Scope, FactoryFn<T>];
 	}
 
 	get<T extends object>(type: TypeKey<T>): T {
-		return new ScopedLookup(this).get(type);
+		const ref = getTypeRef(type);
+		const [scope] = this.find(ref);
+		return new ScopedLookup(this, scope ?? 'transient').resolve(ref);
 	}
 
 	has<T extends object>(type: TypeKey<T>): boolean {
-		const found = this.find(type);
+		const found = this.find(getTypeRef(type));
 		return !!found;
 	}
 
-	register<T extends object, U extends T>(type: TypeKey<T>, ctor: (ioc: Resolver) => U, options?: { scope: undefined | 'singleton' }) {
-		const ref = getTypeRef(type);
-		if(this.has(ref)) throw new Error(`Can\'t register ${getSymbolText(ref)} twice.`)
+	register<T extends object, U extends T>(type: TypeKey<T>, ctor: FactoryFn<U>, options?: { scope: undefined | 'singleton' }) {
 		if(options?.scope === 'singleton') {
 			let instance: undefined | U = undefined;
-			this.#knownTypes.set(ref, () => {
+			this.#set(type, 'singleton', (resolver) => {
 				if(instance === undefined)
-					instance = ctor(this);
+					instance = ctor(resolver);
 				return instance;
-			})
+			});
 		} else
-			this.#knownTypes.set(ref, ctor);
+			this.#set(type, 'transient', ctor);
 	}
 
 	registerInstance<T extends object, U extends T>(type: TypeKey<T>, instance: U) {
-		this.register(type, () => instance);
+		this.#set(type, 'singleton', () => instance);
 	}
 }
 
@@ -100,7 +108,8 @@ class ChildContainer implements IocContainer {
 	}
 
 	find<T extends object>(type: TypeKey<T>) {
-		return this.c.find(type) ?? this.inner.find(type);
+		const ref = getTypeRef(type);
+		return this.c.find(ref) ?? this.inner.find(ref);
 	}
 
 	has<T extends object>(type: TypeKey<T>): boolean {
@@ -121,25 +130,34 @@ class ChildContainer implements IocContainer {
 
 class ScopedLookup {
 	readonly #resolved = new WeakMap<TypeRef<unknown>, unknown>();
-	constructor(private readonly innner: Pick<TinyContainer, 'find'>) {}
+	constructor(
+		private readonly innner: Pick<TinyContainer, 'find'>,
+		private readonly scope: Scope) {}
 
 	get<T extends object>(type: TypeKey<T>): T {
 		const ref = getTypeRef(type);
+		const found = this.#resolved.get(ref);
+		if (found !== undefined) {
+			if(found == CYCLE) {
+				const e  = new CycleError();
+				e.path.push(ref);
+				throw e;
+			}
+			return found as T;
+		}
+
+		return this.resolve(ref);
+	}
+
+	resolve<T extends object>(ref: TypeRef<T>): T {
+		const [scope, resolve] = this.innner.find(ref);
+		if (!resolve) throw new ResolutionError(getSymbolText(ref));
+
+		if(this.scope === 'singleton' && scope !== 'singleton') 
+			throw new ResolutionError('Scope error, singleton instantieted using transient service.');
+
+		this.#resolved.set(ref, CYCLE);
 		try {
-			const found = this.#resolved.get(ref);
-			if (found !== undefined) {
-				if(found == CYCLE)
-					throw new CycleError();
-				return found as T;
-			}
-
-			const resolve = this.innner.find(ref);
-			if (!resolve) {
-				const name = isTypeRef(type) ? getSymbolText(type) : type.prototype.constructor.name;
-				throw new ResolutionError(name);
-			}
-
-			this.#resolved.set(ref, CYCLE);
 			const resolved = resolve(this);
 			this.#resolved.set(ref, resolved);
 			return resolved;
@@ -148,5 +166,6 @@ class ScopedLookup {
 				error.path.push(ref);
 			throw error;
 		}
+
 	}
 }

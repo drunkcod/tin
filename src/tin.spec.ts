@@ -48,6 +48,28 @@ describe('tin', () => {
 		c.register(key, () => ({ n: n++ }), { scope: 'singleton' });
 
 		expect({ x: c.get(key), y: c.get(key) }).toMatchObject({ x: { n: 0 }, y: { n: 0 } });
+	});
+
+	test('singleton can\'t depend on transient', () => {
+		const c = new TinyContainer();
+		const singleton = TypeRef.for('singleton');
+		const transient = TypeRef.for('transient');
+
+		c.register(singleton, (c) => ({ x: c.get(transient) }), { scope: 'singleton' });
+		c.register(transient, () => ({ message: 'hello world'}));
+
+		expect(() => c.get(singleton)).toThrowError();
+	});
+
+	test('instances are singletons', () => {
+		const c = new TinyContainer();
+		const singleton = TypeRef.for('singleton');
+		const instance = TypeRef.for('instance');
+
+		c.register(singleton, (c) => ({ x: c.get(instance) }), { scope: 'singleton' });
+		c.registerInstance(instance, { message: 'hello world'});
+
+		expect(c.get(singleton)).toMatchObject({ x: { message: 'hello world'} });
 
 	});
 
@@ -72,7 +94,6 @@ describe('tin', () => {
 
 		c.register(a, (c) => ({ b: c.get(b)}));
 		c.register(b, (c) => ({ a: c.get(a)}));
-
 		expect(() => c.get(a)).toThrowError(CycleError);
 	});
 
