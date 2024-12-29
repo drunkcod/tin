@@ -1,5 +1,5 @@
 import { describe, it, test, expect } from '@jest/globals';
-import { CycleError, TinyContainer } from './index.js';
+import { CycleError, IocContainer, TinyContainer } from './index.js';
 import { TypeRef } from './typeRef.js';
 
 describe('tin', () => {
@@ -61,6 +61,20 @@ describe('tin', () => {
 		expect(() => c.get(singleton)).toThrowError();
 	});
 
+	test('singletons can\'t have cross container dependencies', () => {
+		const c = new TinyContainer();
+		const singleton = TypeRef.for('singleton');
+		const secondton = TypeRef.for('secondton');
+
+		c.register(singleton, (c) => ({ x: c.get(secondton) }), { scope: 'singleton' });
+
+		const d = c.child();
+		d.register(secondton, (c) => ({ id: 'secondton'}), { scope: 'singleton' });
+		
+		expect(() => d.get(singleton)).toThrowError();
+
+	});
+
 	test('instances are singletons', () => {
 		const c = new TinyContainer();
 		const singleton = TypeRef.for('singleton');
@@ -113,6 +127,29 @@ describe('tin', () => {
 			a: { b: { value: 'hello' } },
 			baseHasB: false,
 		});
-
 	});
+
+	it('can resolve multiple', () => {
+		const c = new TinyContainer();
+		const types = {
+			hello: TypeRef.for<{ hello: string }>('hello'),
+			reuse: TypeRef.for<{ x: { hello: string } }>('reuse'),
+		};
+		c.register(types.hello, () => ({ hello: 'hello' }));
+		c.register(types.reuse, (c) => ({ x: c.get(types.hello) }));
+		const [hello, reuse] = c.get([types.hello, types.reuse])
+
+		expect(reuse.x).toBe(hello);
+	});
+
+	it('can replace registration', () => {
+		const c = new TinyContainer();
+		const key = TypeRef.for('key');
+
+		c.register(key, () => ({ id: 1 }));
+		c.register(key, () => ({ id: 2 }), { replace: true });
+
+		expect(c.get(key)).toMatchObject({ id: 2 });
+	});
+
 });
