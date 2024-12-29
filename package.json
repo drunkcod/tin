@@ -1,7 +1,7 @@
 {
   "name": "@drunkcod/tin",
   "type": "module",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "tobbe's tiny injection library, token based IoC and factory factory thing.",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",

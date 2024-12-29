@@ -1,20 +1,8 @@
 import { TypeRef } from './typeRef.js';
 
 export { TypeRef, ref } from './typeRef.js';
+
 export type TypeKey<T> = { prototype: T } | TypeRef<T>;
-
-type Resolver = Pick<IocContainer, 'get'>;
-type Finder = Pick<TinyContainer, 'find'>;
-
-type FactoryFn<T> = (ioc: Resolver) => T;
-
-type Unref<T> = T extends TypeRef<infer U> ? U : never;
-
-type Resolved<T> = {[K in keyof T]: Unref<T[K]> }
-
-type RegistrationOptions = { scope?: Scope, replace?: boolean };
-
-const DefaultOptions = { scope: 'transient', replace: false } as const;
 
 export interface IocContainer {
 	get<T extends object>(type: TypeKey<T>): T;
@@ -22,15 +10,6 @@ export interface IocContainer {
 	register<T extends object, U extends T>(type: TypeKey<T>, ctor: FactoryFn<U>,  options?: RegistrationOptions): void;
 	registerInstance<T extends object, U extends T>(type: TypeKey<T>, instance: U, options?: Pick<RegistrationOptions, 'replace'>): void;
 }
-
-const isTypeRef = <T>(x: TypeKey<T>): x is TypeRef<T> => typeof x === 'symbol';
-
-const getSymbolText = (x: Symbol) => {
-	const s = x.toString();
-	return s.substring('Symbol('.length, s.length - 1);
-};
-
-const CYCLE: unique symbol = Symbol('Dependency Cycle');
 
 export class CycleError extends Error {
 	readonly path: TypeRef<unknown>[] = [];
@@ -51,6 +30,29 @@ class ResolutionError extends Error {
 		throw new ResolutionError(getSymbolText(ref));
 	}
 }
+
+type Resolver = Pick<IocContainer, 'get'>;
+
+type Finder = Pick<TinyContainer, 'find'>;
+
+type FactoryFn<T> = (ioc: Resolver) => T;
+
+type Unref<T> = T extends TypeRef<infer U> ? U : never;
+
+type Resolved<T> = {[K in keyof T]: Unref<T[K]> }
+
+type RegistrationOptions = { scope?: Scope, replace?: boolean };
+
+const DefaultOptions = Object.freeze({ scope: 'transient', replace: false });
+
+const isTypeRef = <T>(x: TypeKey<T>): x is TypeRef<T> => typeof x === 'symbol';
+
+const getSymbolText = (x: Symbol) => {
+	const s = x.toString();
+	return s.substring('Symbol('.length, s.length - 1);
+};
+
+const CYCLE: unique symbol = Symbol('Dependency Cycle');
 
 const protoToRef = new Map<any, TypeRef<unknown>>();
 
@@ -191,6 +193,5 @@ class ScopedLookup {
 				error.path.push(ref);
 			throw error;
 		}
-
 	}
 }
