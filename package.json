@@ -1,7 +1,7 @@
 {
   "name": "@drunkcod/tin",
   "type": "module",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "tobbe's tiny injection library, token based IoC and factory factory thing.",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -12,18 +12,18 @@
     ".": {
       "import": {
         "default": "./lib/index.js",
-        "types": "./lib/index.ts"
+        "types": "./lib/index.d.ts"
       },
       "require": {
         "default": "./lib/cjs/index.js",
-        "types": "./lib/index.ts"
+        "types": "./lib/cjs/index.d.ts"
       }
     }
   },
   "scripts": {
     "clean": "rimraf lib",
     "compile": "tsc",
-    "compile:cjs": "tsc --module commonjs --outdir lib/cjs --declaration false",
+    "compile:cjs": "tsc --module commonjs --outdir lib/cjs",
     "fixup:cjs": "echo '{\"type\": \"commonjs\"}' > lib/cjs/package.json",
     "test": "NODE_OPTIONS=\"--experimental-vm-modules --no-warnings\" jest",
     "build": "npm-run-all clean -p compile compile:cjs -s fixup:cjs --silent"
