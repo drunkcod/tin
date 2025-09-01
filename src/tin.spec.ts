@@ -1,5 +1,5 @@
 import { describe, it, test, expect } from '@jest/globals';
-import { CycleError, IocContainer, TinyContainer } from './index.js';
+import { CycleError, TinyContainer } from './index.js';
 import { TypeRef } from './typeRef.js';
 
 describe('tin', () => {
@@ -58,7 +58,7 @@ describe('tin', () => {
 		c.register(singleton, (c) => ({ x: c.get(transient) }), { scope: 'singleton' });
 		c.register(transient, () => ({ message: 'hello world'}));
 
-		expect(() => c.get(singleton)).toThrowError();
+		expect(() => c.get(singleton)).toThrow();
 	});
 
 	test('singletons can\'t have cross container dependencies', () => {
@@ -71,7 +71,7 @@ describe('tin', () => {
 		const d = c.child();
 		d.register(secondton, (c) => ({ id: 'secondton'}), { scope: 'singleton' });
 		
-		expect(() => d.get(singleton)).toThrowError();
+		expect(() => d.get(singleton)).toThrow();
 
 	});
 
@@ -90,14 +90,14 @@ describe('tin', () => {
 	it('raises Erorr on resolution failure', () => {
 		const c = new TinyContainer();
 		const key = TypeRef.for('missing');
-		expect(() => c.get(key)).toThrowError();
+		expect(() => c.get(key)).toThrow();
 	});
 
 	it('rasises Error when trying to register a ref twice', () => {
 		const c = new TinyContainer();
 		const key = TypeRef.for('there-can-be-only-one');
 		c.register(key, () => ({ theAnswer: 42 }));
-		expect(() => c.register(key, () => ({ message: "nope" }))).toThrowError();
+		expect(() => c.register(key, () => ({ message: "nope" }))).toThrow();
 
 	});
 	
@@ -108,7 +108,7 @@ describe('tin', () => {
 
 		c.register(a, (c) => ({ b: c.get(b)}));
 		c.register(b, (c) => ({ a: c.get(a)}));
-		expect(() => c.get(a)).toThrowError(CycleError);
+		expect(() => c.get(a)).toThrow(CycleError);
 	});
 
 	it('can create child container', () => {
